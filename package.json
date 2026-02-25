@@ -49,8 +49,8 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*",
-      "dist-electron/**/*"
+      "dist",
+      "dist-electron"
     ],
     "extraResources": [
       {
