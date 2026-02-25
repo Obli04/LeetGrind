@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Home from './pages/Home'
 import Problems from './pages/Problems'
 import ProblemDetail from './pages/ProblemDetail'
+import Submissions from './pages/Submissions'
 import Settings from './pages/Settings'
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
           <Route index element={<Home />} />
           <Route path="problems" element={<Problems />} />
           <Route path="problems/:slug" element={<ProblemDetail />} />
+          <Route path="submissions" element={<Submissions />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

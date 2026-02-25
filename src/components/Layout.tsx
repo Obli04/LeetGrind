@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { 
   Home as HomeIcon, 
   List, 
+  Send,
   Settings as SettingsIcon,
   Sun,
   Moon
@@ -11,6 +12,7 @@ import { useStore } from '../store'
 const sidebarItems = [
   { icon: HomeIcon, label: 'Home', path: '/' },
   { icon: List, label: 'Problems', path: '/problems' },
+  { icon: Send, label: 'Submissions', path: '/submissions' },
   { icon: SettingsIcon, label: 'Settings', path: '/settings' },
 ]
 
@@ -35,12 +37,11 @@ export default function Layout() {
         }}
       >
         <div className="mb-8">
-          <div 
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
-            style={{ backgroundColor: 'var(--accent-primary)' }}
-          >
-            L
-          </div>
+          <img 
+            src="/LeetGrind.png" 
+            alt="LeetGUI" 
+            className="w-10 h-10 rounded-lg"
+          />
         </div>
         
         <nav className="flex flex-col gap-2 flex-1">

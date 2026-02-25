@@ -11,6 +11,26 @@ export interface Problem {
   questionFrontendId: string
 }
 
+export interface SubmitResult {
+  submissionId: number
+  state: 'SUCCESS' | 'FAILURE' | 'TIMEOUT' | 'PENDING' | 'STARTED'
+  status: string
+  statusCode?: number
+  runtime?: string
+  memory?: string
+  runtimePercentile?: number
+  memoryPercentile?: number
+  totalCorrect?: number
+  totalTestcases?: number
+  compileError?: string
+  runtimeError?: string
+  lastTestcase?: string
+  expectedOutput?: string
+  codeOutput?: string
+  stdOutput?: string
+  fullData?: any
+}
+
 export interface TopicTag {
   id: string
   name: string
@@ -79,6 +99,10 @@ export const leetCodeApi = {
     return window.electronAPI.leetcode.validateCookie(cookie)
   },
 
+  async submitCode(questionSlug: string, questionId: string, code: string, lang: string, cookie: string, csrfToken?: string): Promise<SubmitResult | null> {
+    return window.electronAPI.leetcode.submitCode(questionSlug, questionId, code, lang, cookie, csrfToken || '')
+  },
+
   async getProblems(cookie: string): Promise<Problem[]> {
     return window.electronAPI.leetcode.getProblems(cookie)
   },
@@ -110,5 +134,9 @@ export const leetCodeApi = {
 
   async getUserProfile(cookie: string) {
     return window.electronAPI.leetcode.getUserProfile(cookie)
+  },
+
+  async getSubmissionCalendar(cookie: string): Promise<Record<string, number>> {
+    return window.electronAPI.leetcode.getSubmissionCalendar(cookie)
   },
 }

@@ -11,6 +11,7 @@ export interface Settings {
   rootFolder: string
   editor: Editor
   cookie: string
+  csrfToken: string
 }
 
 interface AppState {
@@ -36,6 +37,7 @@ const defaultSettings: Settings = {
   rootFolder: '',
   editor: 'zed',
   cookie: '',
+  csrfToken: '',
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -68,7 +70,7 @@ export const useStore = create<AppState>((set, get) => ({
       const saved = await window.electronAPI.store.get('settings') as Settings | null
       const cookie = await window.electronAPI.store.get('cookie') as string | null
       if (saved) {
-        set({ settings: { ...saved, cookie: cookie || '' } })
+        set({ settings: { ...defaultSettings, ...saved, cookie: cookie || '' } })
       }
       set({ isAuthenticated: !!cookie })
     } catch (error) {

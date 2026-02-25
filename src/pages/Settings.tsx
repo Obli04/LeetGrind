@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [defaultLang, setDefaultLang] = useState(settings.defaultLanguage)
   const [theme, setTheme] = useState<Theme>(settings.theme)
   const [cookie, setCookie] = useState(settings.cookie)
+  const [csrfToken, setCsrfToken] = useState(settings.csrfToken)
   const [showCookie, setShowCookie] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -83,7 +84,8 @@ export default function SettingsPage() {
         editor,
         defaultLanguage: defaultLang,
         theme,
-        cookie
+        cookie,
+        csrfToken
       })
 
       setMessage({ type: 'success', text: 'Settings saved successfully!' })
@@ -259,6 +261,25 @@ export default function SettingsPage() {
                 {showCookie ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
               </button>
             </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="font-medium mb-2" style={{ color: 'var(--text-primary)' }}>CSRF Token (Optional)</p>
+            <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+              Required for submitting code. Get it from browser DevTools → Application → Cookies
+            </p>
+            <input
+              type="text"
+              value={csrfToken}
+              onChange={(e) => setCsrfToken(e.target.value)}
+              placeholder="Enter your CSRF token"
+              className="w-full px-3 py-2 rounded-btn text-sm outline-none font-mono"
+              style={{ 
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)'
+              }}
+            />
           </div>
         </SettingsSection>
 

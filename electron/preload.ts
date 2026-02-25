@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getUserProfile: (cookie: string) => ipcRenderer.invoke('leetcode:getUserProfile', cookie),
     getSubmissions: (cookie: string, limit?: number, offset?: number) => ipcRenderer.invoke('leetcode:getSubmissions', cookie, limit, offset),
     getSubmissionDetail: (cookie: string, submissionId: number) => ipcRenderer.invoke('leetcode:getSubmissionDetail', cookie, submissionId),
+    getSubmissionCalendar: (cookie: string) => ipcRenderer.invoke('leetcode:getSubmissionCalendar', cookie),
+    submitCode: (questionSlug: string, questionId: string, code: string, lang: string, cookie: string, csrfToken: string) => ipcRenderer.invoke('leetcode:submitCode', questionSlug, questionId, code, lang, cookie, csrfToken),
     onProblemsBatch: (callback: (data: { problems: any[], hasMore: boolean, total: number }) => void) => {
       const handler = (_event: any, data: any) => callback(data)
       ipcRenderer.on('leetcode:problemsBatch', handler)
@@ -28,6 +30,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('leetcode:problemsLoaded', handler)
       return () => ipcRenderer.removeListener('leetcode:problemsLoaded', handler)
     },
+    onProblemsProgress: (callback: (data: { phase: string; progress: number; count?: number }) => void) => {
+      const handler = (_event: any, data: any) => callback(data)
+      ipcRenderer.on('leetcode:problemsProgress', handler)
+      return () => ipcRenderer.removeListener('leetcode:problemsProgress', handler)
+    },
   },
   editor: {
     open: (folderPath: string, editor: string) => ipcRenderer.invoke('editor:open', folderPath, editor),
@@ -35,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fs: {
     createProblemFiles: (rootPath: string, problemId: number, problemTitle: string, code: string, lang: string) =>
       ipcRenderer.invoke('fs:createProblemFiles', rootPath, problemId, problemTitle, code, lang),
+    readFile: (filePath: string) => ipcRenderer.invoke('fs:readFile', filePath),
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),

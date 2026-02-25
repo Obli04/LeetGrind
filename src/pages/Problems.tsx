@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store'
 import { leetCodeApi } from '../services/leetcode'
+import ProgressToast from '../components/ProgressToast'
 
 type Difficulty = 'All' | 'Easy' | 'Medium' | 'Hard'
 type Status = 'All' | 'Solved' | 'Unsolved'
@@ -30,6 +31,7 @@ export default function Problems() {
   const [difficulty, setDifficulty] = useState<Difficulty>('All')
   const [status, setStatus] = useState<Status>('All')
   const [showFilters, setShowFilters] = useState(false)
+  const [loadProgress, setLoadProgress] = useState({ phase: 'counting' as 'counting' | 'fetching' | 'complete' | 'error', progress: 0, count: 0 })
 
   const handleDaily = async () => {
     try {
@@ -62,9 +64,18 @@ export default function Problems() {
   useEffect(() => {
     let cleanupBatch: (() => void) | undefined
     let cleanupLoaded: (() => void) | undefined
+    let cleanupProgress: (() => void) | undefined
 
     const fetchProblems = async () => {
       try {
+        cleanupProgress = window.electronAPI.leetcode.onProblemsProgress((data) => {
+          setLoadProgress({ 
+            phase: data.phase as any, 
+            progress: data.progress, 
+            count: data.count || 0 
+          })
+        })
+        
         cleanupBatch = window.electronAPI.leetcode.onProblemsBatch((data) => {
           addProblemsBatch(data.problems)
         })
@@ -72,11 +83,13 @@ export default function Problems() {
         cleanupLoaded = window.electronAPI.leetcode.onProblemsLoaded((allProblems) => {
           setProblems(allProblems)
           setLoading(false)
+          setLoadProgress({ phase: 'complete', progress: 100, count: allProblems.length })
         })
         
         await leetCodeApi.getProblems(settings.cookie)
       } catch (error) {
         console.error('Failed to fetch problems:', error)
+        setLoadProgress({ phase: 'error', progress: 0, count: 0 })
       }
     }
     
@@ -89,6 +102,7 @@ export default function Problems() {
     return () => {
       cleanupBatch?.()
       cleanupLoaded?.()
+      cleanupProgress?.()
     }
   }, [settings.cookie])
 
@@ -96,12 +110,15 @@ export default function Problems() {
     return problems.filter(p => {
       const matchesSearch = !search || 
         p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.questionFrontendId.includes(search)
+        (p.questionFrontendId && p.questionFrontendId.toString().includes(search)) ||
+        (p.topicTags && p.topicTags.some((tag: any) => tag.name.toLowerCase().includes(search.toLowerCase())))
       
-      const matchesDifficulty = difficulty === 'All' || p.difficulty === difficulty
+      const matchesDifficulty = difficulty === 'All' || p.difficulty?.toLowerCase() === difficulty.toLowerCase()
+      const isSolved = p.status === 'AC' || p.status === 'ac'
+      const isUnsolved = !p.status || p.status === 'TO_DO' || p.status === 'NOT_STARTED' || p.status === 'NOT_STARTED'
       const matchesStatus = status === 'All' || 
-        (status === 'Solved' && p.status === 'AC') ||
-        (status === 'Unsolved' && !p.status)
+        (status === 'Solved' && isSolved) ||
+        (status === 'Unsolved' && isUnsolved)
       
       return matchesSearch && matchesDifficulty && matchesStatus
     })
@@ -291,6 +308,7 @@ export default function Problems() {
           <div className="space-y-2">
             {paginatedProblems.map((problem, idx) => {
               const diffColors = getDifficultyColor(problem.difficulty)
+              const isSolved = problem.status === 'AC' || problem.status === 'ac'
               return (
                 <div
                   key={problem.questionFrontendId || problem.titleSlug || idx}
@@ -302,7 +320,7 @@ export default function Problems() {
                   }}
                 >
                   <div className="w-8">
-                    {problem.status === 'AC' ? (
+                    {isSolved ? (
                       <CheckCircle2 size={20} style={{ color: 'var(--success)' }} />
                     ) : (
                       <Circle size={20} style={{ color: 'var(--text-muted)' }} />
@@ -384,6 +402,12 @@ export default function Problems() {
           )}
         </div>
       </div>
+      
+      <ProgressToast 
+        progress={loadProgress.progress} 
+        phase={loadProgress.phase}
+        count={loadProgress.count}
+      />
     </div>
   )
 }
