@@ -6,8 +6,9 @@
 
 ### Home Dashboard
 ![Home](public/Home.png)
-> I'll get my numbers up now... I hope </3
 ![Two Sum](public/TwoSum.png)
+> I'll get my numbers up now... I hope </3
+
 
 
 ## Features
