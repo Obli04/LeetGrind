@@ -6,8 +6,8 @@
   "author": "",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
-    "build:vite": "tsc && vite build",
+    "build": "vite build && electron-builder",
+    "build:all": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"

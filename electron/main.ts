@@ -615,11 +615,8 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
         }
       }
 
-      // OTTIMIZZAZIONE: Carica direttamente la pagina del problema (non serve homepage)
       console.log('Loading problem page...')
       await submitWindow.loadURL(`https://leetcode.com/problems/${questionSlug}/`)
-
-      // OTTIMIZZAZIONE: Riduci da 2000ms a 800ms - è sufficiente
       await new Promise(resolve => setTimeout(resolve, 800))
 
       console.log('Submitting code...')
@@ -672,13 +669,11 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
       console.log('Submission ID:', submissionId)
       console.log('Polling for results...')
 
-      // OTTIMIZZAZIONE: Polling più aggressivo all'inizio, poi rallenta
       let attempts = 0
-      const maxAttempts = 40 // 20 secondi max (invece di 30)
+      const maxAttempts = 40
 
       while (attempts < maxAttempts) {
-        // OTTIMIZZAZIONE: Primi 5 tentativi ogni 300ms, poi ogni 500ms
-        const delay = attempts < 5 ? 300 : 500
+        const delay = 300
         await new Promise(resolve => setTimeout(resolve, delay))
         attempts++
 

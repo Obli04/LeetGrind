@@ -31,7 +31,7 @@ jobs:
           - name: Install dependencies
             run: npm i
           - name: Build Vite App
-            run: npm run build:vite
+            run: npm run build:all
           - name: Build Electron App
             run: npx electron-builder ${{ matrix.args }}
             env:
