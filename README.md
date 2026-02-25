@@ -56,6 +56,7 @@ npm run build
 5. Expand **Cookies** → **https://leetcode.com**
 6. Copy the value of the `LEETCODE_SESSION` cookie
 7. Paste it into the LeetGrind login screen
+8. (Optional) You should also get your Csrftoken if you want to use the **submit** feature.
 
 ## To Do
 
