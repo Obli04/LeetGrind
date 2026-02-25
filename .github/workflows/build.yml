@@ -32,12 +32,6 @@ jobs:
             run: npm i
           - name: Build Vite App
             run: npm run build:all
-          - name: Debug
-            run: |
-                echo "Contents of dist-electron:"
-                ls -la dist-electron/ || echo "dist-electron directory not found"
-                echo "Contents of dist:"
-                ls -la dist/ || echo "dist directory not found"
           - name: Build Electron App
             run: npx electron-builder ${{ matrix.args }}
             env:
