@@ -4,7 +4,7 @@
   <img src="public/LeetGrind.png" alt="LeetGrind" width="128" />
 </p>
 
-> ⚠️ **Disclaimer**: This project is not affiliated with, endorsed by, or associated with LeetCode or its parent companies.
+> ⚠️ This is an unofficial third-party client for LeetCode. It is not affiliated with or endorsed by LeetCode. This software interacts with LeetCode’s website using user-provided authentication tokens. Users are responsible for complying with LeetCode’s Terms of Service. Use at your own risk.
 
 ### Home Dashboard
 ![Home](public/Home.png)
