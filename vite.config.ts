@@ -13,8 +13,9 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron',
+            minify: process.env.NODE_ENV === 'production',
             rollupOptions: {
-              external: ['electron', 'electron-store']
+              external: ['electron', 'electron-store', 'leetcode-query', 'axios']
             }
           }
         }
