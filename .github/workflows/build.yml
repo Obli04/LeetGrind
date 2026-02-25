@@ -33,7 +33,7 @@ jobs:
           - name: Build Vite App
             run: npm run build:all
           - name: Debug
-            run:
+            run: |
                 echo "Contents of dist-electron:"
                 ls -la dist-electron/ || echo "dist-electron directory not found"
                 echo "Contents of dist:"
