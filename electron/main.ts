@@ -278,13 +278,6 @@ ipcMain.handle("leetcode:getProblems", async (_event, cookie: string) => {
           : 0,
     }));
 
-    console.log(
-      "Processed problems:",
-      allProblems.length,
-      "solved:",
-      allProblems.filter((p) => p.status === "AC").length,
-    );
-
     cachedProblems = allProblems;
     cachedProblemCount = allProblems.length;
     store.set("problems", allProblems);
@@ -394,7 +387,7 @@ ipcMain.handle("leetcode:getDailyProblem", async (_event, cookie: string) => {
       topicTags: daily.question?.topicTags || [],
       isPaidOnly: daily.question?.isPaidOnly,
       status: daily.question?.status,
-      solutionNum: daily.question?.solutionNum,
+      solutionNum: daily.question?.solution,
       acceptanceRate: 0,
     };
   } catch (error: any) {
