@@ -42,7 +42,7 @@
   },
   "build": {
     "appId": "com.leetgui.app",
-    "productName": "LeetGUI",
+    "productName": "LeetGrind",
     "directories": {
       "output": "release"
     },
