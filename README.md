@@ -4,7 +4,7 @@
   <img src="public/LeetGrind.png" alt="LeetGrind" width="128" />
 </p>
 
-> ⚠️ **Disclaimer**: This project is not affiliated with, endorsed by, or associated with LeetCode or its parent companies. LeetCode is a trademark of LeetCode (Nanjing) Co., Ltd. This is an open-source project created for educational purposes.
+> ⚠️ **Disclaimer**: This project is not affiliated with, endorsed by, or associated with LeetCode or its parent companies.
 
 ### Home Dashboard
 ![Home](public/Home.png)
