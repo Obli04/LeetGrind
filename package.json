@@ -5,9 +5,10 @@
   "main": "dist-electron/main.js",
   "author": "",
   "scripts": {
-    "dev": "vite",
-    "build": "npm run build:electron && vite build && electron-builder",
-    "build:electron": "node build-electron.js",
+    "dev": "vite --host",
+    "build": "vite build && electron-builder",
+    "build:vite": "vite build",
+    "build:electron": "vite build",
     "build:all": "npm run build:electron && vite build",
     "preview": "vite preview",
     "electron:dev": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
@@ -45,6 +46,7 @@
   "build": {
     "appId": "com.leetgui.app",
     "productName": "LeetGrind",
+    "icon": "public/LeetGrind.png",
     "directories": {
       "output": "release"
     },

@@ -8,6 +8,7 @@ import {
   Moon
 } from 'lucide-react'
 import { useStore } from '../store'
+import leetGrindLogo from '/LeetGrind.png'
 
 const sidebarItems = [
   { icon: HomeIcon, label: 'Home', path: '/' },
@@ -38,7 +39,7 @@ export default function Layout() {
       >
         <div className="mb-8">
           <img 
-            src="/LeetGrind.png" 
+            src={leetGrindLogo} 
             alt="LeetGUI" 
             className="w-10 h-10 rounded-lg"
           />
