@@ -712,7 +712,7 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
             status: checkResult.data.status_msg,
             statusCode: checkResult.data.status_code,
             runtime: checkResult.data.status_runtime || checkResult.data.display_runtime || checkResult.data.runtime,
-            memory: checkResult.data.status_memory ? `${(checkResult.data.status_memory / 1024 / 1024).toFixed(1)} MB` : checkResult.data.memory,
+            memory: checkResult.data.memory ? `${(Number(checkResult.data.memory) / 1024 / 1024).toFixed(1)} MB` : '0 MB',
             runtimePercentile: checkResult.data.runtime_percentile,
             memoryPercentile: checkResult.data.memory_percentile,
             totalCorrect: checkResult.data.total_correct,
