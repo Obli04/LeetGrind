@@ -1,6 +1,6 @@
 {
   "name": "leetgrind",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Open-source Electron desktop app for LeetCode.",
   "main": "dist-electron/main.js",
   "author": "",
