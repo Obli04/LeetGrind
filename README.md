@@ -62,10 +62,8 @@ npm run build
 
 ## To Do
 
-1. Implement a feature to save old results - See what problems you have already solved.
-2. Improve the UI/UX for better user experience
-3. Better Documentation
-4. Overhaul Home Page
+1. Improve the UI/UX for better user experience
+2. Better Documentation
   
 ## Contributing
 
