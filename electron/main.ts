@@ -15,8 +15,141 @@ let leetcode: LeetCode | null = null;
 let cachedProblems: any[] | null = null;
 let cachedProblemCount: number = 0;
 let isFetchingProblems = false;
+const PROBLEMS_PAGE_SIZE = 100;
+const MIN_COMPLETE_CACHE_SIZE = 3500;
 
 const LEETCODE_GRAPHQL = "https://leetcode.com/graphql";
+
+function extractProblemsArray(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.stat_status_pairs)) return payload.stat_status_pairs;
+  if (Array.isArray(payload?.problemsetQuestionList?.questions)) {
+    return payload.problemsetQuestionList.questions;
+  }
+  if (Array.isArray(payload?.questions)) return payload.questions;
+  return [];
+}
+
+function normalizeProblem(p: any) {
+  const difficultyLevel =
+    p.difficulty && typeof p.difficulty === "object" ? p.difficulty.level : null;
+  const normalizedDifficulty =
+    typeof p.difficulty === "string"
+      ? p.difficulty
+      : difficultyLevel === 1
+        ? "Easy"
+        : difficultyLevel === 2
+          ? "Medium"
+          : difficultyLevel === 3
+            ? "Hard"
+            : "Medium";
+
+  return {
+    id:
+      p.stat?.frontend_question_id ||
+      p.id ||
+      p.questionFrontendId ||
+      p.frontendQuestionId ||
+      0,
+    questionFrontendId: String(
+      p.stat?.frontend_question_id ||
+        p.id ||
+        p.questionFrontendId ||
+        p.frontendQuestionId ||
+        "",
+    ),
+    title: p.stat?.question__title || p.title || "",
+    titleSlug: p.stat?.question__title_slug || p.titleSlug || "",
+    difficulty: normalizedDifficulty,
+    topicTags: p.topicTags || [],
+    isPaidOnly: p.paid_only ?? p.isPaidOnly ?? p.paidOnly ?? false,
+    status: p.status || null,
+    solutionNum: p.solutionNum || (p.hasSolution ? 1 : 0),
+    acceptanceRate:
+      typeof p.acRate === "number"
+        ? p.acRate
+        : p.stat?.total_acs && p.stat?.total_submissions
+          ? p.stat.total_acs / p.stat.total_submissions
+          : 0,
+  };
+}
+
+async function fetchAllProblems(
+  lc: LeetCode,
+  options?: {
+    onCount?: (total: number) => void;
+    onBatch?: (batch: any[], hasMore: boolean, total: number) => void;
+    onProgress?: (progress: number, count: number) => void;
+  },
+): Promise<any[]> {
+  const allProblems: any[] = [];
+  let offset = 0;
+  let total = 0;
+  while (true) {
+    let page: any = null;
+    let problems: any[] = [];
+    let attempts = 0;
+
+    while (attempts < 3) {
+      attempts += 1;
+      page = await lc.problems({
+        offset,
+        limit: PROBLEMS_PAGE_SIZE,
+      });
+      problems = extractProblemsArray(page);
+
+      if (problems.length > 0) {
+        break;
+      }
+
+      const hasExpectedMore = total > 0 && offset < total;
+      if (!hasExpectedMore) {
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    if (total === 0) {
+      total = Number(page?.total || page?.totalNum || problems.length || 0);
+      options?.onCount?.(total);
+    }
+
+    if (!problems.length) {
+      break;
+    }
+
+    const normalizedBatch = problems.map((problem: any) =>
+      normalizeProblem(problem),
+    );
+    allProblems.push(...normalizedBatch);
+
+    offset += problems.length;
+    const hasMore =
+      typeof page?.hasMore === "boolean"
+        ? page.hasMore
+        : problems.length === PROBLEMS_PAGE_SIZE;
+
+    options?.onBatch?.(normalizedBatch, hasMore, total);
+
+    const progress =
+      total > 0 ? Math.min(99, Math.round((allProblems.length / total) * 100)) : 0;
+    options?.onProgress?.(progress, allProblems.length);
+
+    if (!hasMore) {
+      break;
+    }
+  }
+
+  const deduped = new Map<string, any>();
+  for (const problem of allProblems) {
+    const key =
+      problem.titleSlug || String(problem.questionFrontendId || problem.id || "");
+    deduped.set(key, problem);
+  }
+
+  return Array.from(deduped.values());
+}
 
 async function fetchGraphQL(
   query: string,
@@ -41,20 +174,9 @@ async function fetchGraphQL(
         timeout: 30000,
       },
     );
-    if (response.data.errors) {
-      console.log("GraphQL errors:", JSON.stringify(response.data.errors));
-    }
     return response.data.data;
   } catch (error: any) {
-    console.log(
-      "GraphQL request error:",
-      error?.response?.status,
-      error?.message?.slice(0, 100),
-    );
-    console.log(
-      "Response data:",
-      error?.response?.data?.slice?.(0, 500) || error?.response?.data,
-    );
+    console.error("GraphQL request failed:", error?.message);
     throw error;
   }
 }
@@ -103,7 +225,6 @@ app.whenReady().then(() => {
   const savedCount = store.get("problemCount") as number | null;
 
   if (savedProblems && savedProblems.length > 0) {
-    console.log(`Loaded ${savedProblems.length} cached problems from store`);
     cachedProblems = savedProblems;
     cachedProblemCount = savedCount || savedProblems.length;
   }
@@ -185,7 +306,6 @@ function getUsernameFromCookie(cookie: string): {
 ipcMain.handle("leetcode:validateCookie", async (_event, cookie: string) => {
   try {
     const username = getUsernameFromCookie(cookie);
-    console.log("Extracted username:", username);
 
     return { valid: true, cookie, username };
   } catch (error: any) {
@@ -201,32 +321,28 @@ ipcMain.handle("leetcode:validateCookie", async (_event, cookie: string) => {
 ipcMain.handle("leetcode:getProblems", async (_event, cookie: string) => {
   const hasValidCookie = cookie && cookie.length > 20;
   const hasExistingCache = cachedProblems && cachedProblems.length > 0;
+  const hasLikelyCompleteCache =
+    !!cachedProblems && cachedProblems.length >= MIN_COMPLETE_CACHE_SIZE;
 
-  if (cachedProblems && hasExistingCache) {
+  if (cachedProblems && hasExistingCache && hasLikelyCompleteCache) {
     if (hasValidCookie && cachedCookieForCache !== cookie) {
-      console.log(
-        "Cookie changed or user logged in, refreshing to get solved status...",
-      );
       refreshProblemsInBackground(cookie);
     } else if (hasValidCookie) {
-      console.log(
-        "Returning cached problems, triggering background refresh for status update...",
-      );
       refreshProblemsInBackground(cookie);
     }
 
-    console.log(
-      "Returning cached problems:",
-      cachedProblems.length,
-      "solved status:",
-      cachedProblems.filter((p) => p.status === "AC").length,
-    );
     mainWindow?.webContents.send("leetcode:problemsLoaded", cachedProblems);
     return cachedProblems;
   }
 
+  if (cachedProblems && hasExistingCache && !hasLikelyCompleteCache) {
+    cachedProblems = null;
+    cachedProblemCount = 0;
+    store.delete("problems");
+    store.delete("problemCount");
+  }
+
   if (isFetchingProblems) {
-    console.log("Already fetching problems, waiting...");
     while (isFetchingProblems) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
@@ -240,53 +356,55 @@ ipcMain.handle("leetcode:getProblems", async (_event, cookie: string) => {
   isFetchingProblems = true;
 
   try {
-    console.log("Fetching all problems with leetcode-query...");
-
     mainWindow?.webContents.send("leetcode:problemsProgress", {
       phase: "counting",
       progress: 0,
     });
 
     const lc = await getLeetCode(cookie);
-    const problemsData: any = await lc.problems();
-
-    console.log("Problems data type:", typeof problemsData);
-    console.log(
-      "Problems data keys:",
-      problemsData?.stat_status_pairs ? "stat_status_pairs" : "array",
-    );
-
-    const arr = problemsData?.stat_status_pairs || problemsData || [];
-    console.log(
-      "First problem raw:",
-      JSON.stringify(arr[0] || "none").substring(0, 500),
-    );
-
-    const allProblems = arr.map((p: any) => ({
-      id: p.stat?.frontend_question_id || p.id || 0,
-      questionFrontendId: String(p.stat?.frontend_question_id || p.id || ""),
-      title: p.stat?.question__title || "",
-      titleSlug: p.stat?.question__title_slug || "",
-      difficulty: p.difficulty || "Medium",
-      topicTags: p.topicTags || [],
-      isPaidOnly: p.paid_only || false,
-      status: p.status || null,
-      solutionNum: 0,
-      acceptanceRate:
-        p.stat?.total_acs && p.stat?.total_submissions
-          ? p.stat.total_acs / p.stat.total_submissions
-          : 0,
-    }));
+    const allProblems = await fetchAllProblems(lc, {
+      onCount: (_total) => {
+        mainWindow?.webContents.send("leetcode:problemsProgress", {
+          phase: "fetching",
+          progress: 0,
+          count: 0,
+        });
+      },
+      onBatch: (batch, hasMore, total) => {
+        mainWindow?.webContents.send("leetcode:problemsBatch", {
+          problems: batch,
+          hasMore,
+          total,
+        });
+      },
+      onProgress: (progress, count) => {
+        mainWindow?.webContents.send("leetcode:problemsProgress", {
+          phase: "fetching",
+          progress,
+          count,
+        });
+      },
+    });
 
     cachedProblems = allProblems;
     cachedProblemCount = allProblems.length;
     store.set("problems", allProblems);
     store.set("problemCount", allProblems.length);
 
+    mainWindow?.webContents.send("leetcode:problemsProgress", {
+      phase: "complete",
+      progress: 100,
+      count: allProblems.length,
+    });
     mainWindow?.webContents.send("leetcode:problemsLoaded", cachedProblems);
     return cachedProblems;
   } catch (error: any) {
     console.error("Failed to get problems:", error?.message);
+    mainWindow?.webContents.send("leetcode:problemsProgress", {
+      phase: "error",
+      progress: 0,
+      count: 0,
+    });
     return [];
   } finally {
     isFetchingProblems = false;
@@ -295,45 +413,8 @@ ipcMain.handle("leetcode:getProblems", async (_event, cookie: string) => {
 
 async function refreshProblemsInBackground(cookie: string) {
   try {
-    console.log("Refreshing problems with leetcode-query...");
-
     const lc = await getLeetCode(cookie);
-    const problemsData: any = await lc.problems();
-
-    console.log("Refresh - problems type:", typeof problemsData);
-    console.log("Refresh - is array:", Array.isArray(problemsData));
-    console.log(
-      "Refresh - keys:",
-      problemsData?.keys ? Object.keys(problemsData) : "no keys",
-    );
-    if (problemsData?.stat_status_pairs) {
-      console.log(
-        "Refresh - has stat_status_pairs:",
-        problemsData.stat_status_pairs.length,
-      );
-    }
-
-    const arr = problemsData?.stat_status_pairs || problemsData;
-    if (!Array.isArray(arr)) {
-      console.error("Problems data is not an array:", arr);
-      return;
-    }
-
-    const allProblems = arr.map((p: any) => ({
-      id: p.stat?.frontend_question_id || p.id || 0,
-      questionFrontendId: String(p.stat?.frontend_question_id || p.id || ""),
-      title: p.stat?.question__title || "",
-      titleSlug: p.stat?.question__title_slug || "",
-      difficulty: p.difficulty || "Medium",
-      topicTags: p.topicTags || [],
-      isPaidOnly: p.paid_only || false,
-      status: p.status || null,
-      solutionNum: 0,
-      acceptanceRate:
-        p.stat?.total_acs && p.stat?.total_submissions
-          ? p.stat.total_acs / p.stat.total_submissions
-          : 0,
-    }));
+    const allProblems = await fetchAllProblems(lc);
 
     cachedProblems = allProblems;
     cachedProblemCount = allProblems.length;
@@ -341,10 +422,6 @@ async function refreshProblemsInBackground(cookie: string) {
     store.set("problemCount", allProblems.length);
 
     mainWindow?.webContents.send("leetcode:problemsLoaded", cachedProblems);
-    console.log(
-      "Background refresh complete, solved:",
-      allProblems.filter((p) => p.status === "AC").length,
-    );
   } catch (error) {
     console.error("Background refresh failed:", error);
   }
@@ -355,7 +432,6 @@ ipcMain.handle("leetcode:clearProblemsCache", async () => {
   cachedProblemCount = 0;
   store.delete("problems");
   store.delete("problemCount");
-  console.log("Problems cache cleared");
 });
 
 ipcMain.handle(
@@ -374,10 +450,8 @@ ipcMain.handle(
 
 ipcMain.handle("leetcode:getDailyProblem", async (_event, cookie: string) => {
   try {
-    console.log("Fetching daily problem...");
     const lc = await getLeetCode(cookie);
     const daily = await lc.daily();
-    console.log("Daily response:", JSON.stringify(daily).substring(0, 500));
     return {
       id: 0,
       questionFrontendId: daily.question?.questionFrontendId,
@@ -498,7 +572,8 @@ ipcMain.handle(
       const calendarStr = data?.matchedUser?.submissionCalendar;
 
       if (calendarStr) {
-        return JSON.parse(calendarStr);
+        const parsed = JSON.parse(calendarStr);
+        return parsed;
       }
       return {};
     } catch (error: any) {
@@ -538,14 +613,12 @@ ipcMain.handle(
 
 ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, questionId: string, code: string, lang: string, cookie: string, csrfToken: string) => {
   try {
-    const langSlug = lang === 'python3' ? 'python3' : lang
+    const langSlug = lang === 'sql' ? 'mysql' : lang
 
     if (!csrfToken) {
       console.error('No CSRF token provided. Please add it in Settings.')
       return null
     }
-
-    console.log('Submitting code with hidden browser window...')
 
     const submitWindow = new BrowserWindow({
       show: false,
@@ -615,11 +688,9 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
         }
       }
 
-      console.log('Loading problem page...')
       await submitWindow.loadURL(`https://leetcode.com/problems/${questionSlug}/`)
       await new Promise(resolve => setTimeout(resolve, 800))
 
-      console.log('Submitting code...')
       const submitResult = await submitWindow.webContents.executeJavaScript(`
         (async () => {
           try {
@@ -657,8 +728,6 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
         })()
       `)
 
-      console.log('Submit result:', JSON.stringify(submitResult).slice(0, 500))
-
       if (submitResult.error || !submitResult.ok || !submitResult.data?.submission_id) {
         submitWindow.close()
         console.error('Submit failed:', submitResult)
@@ -666,8 +735,6 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
       }
 
       const submissionId = submitResult.data.submission_id
-      console.log('Submission ID:', submissionId)
-      console.log('Polling for results...')
 
       let attempts = 0
       const maxAttempts = 40
@@ -693,8 +760,6 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
           })()
         `)
 
-        console.log(`Poll attempt ${attempts}:`, JSON.stringify(checkResult).slice(0, 300))
-
         if (checkResult.error) {
           console.error('Polling error:', checkResult.error)
           continue
@@ -703,7 +768,6 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
         const state = checkResult.data?.state
 
         if (state === 'SUCCESS') {
-          console.log('Submission completed!')
           submitWindow.close()
 
           return {
@@ -728,7 +792,6 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
         }
 
         if (state === 'FAILURE') {
-          console.log('Submission failed')
           submitWindow.close()
 
           return {
@@ -742,7 +805,22 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
           }
         }
 
-        console.log('Still processing...')
+        if (state === 'FAILURE') {
+          submitWindow.close()
+
+          return {
+            submissionId: submissionId,
+            state: 'FAILURE',
+            status: checkResult.data.status_msg || 'Failed',
+            statusCode: checkResult.data.status_code,
+            totalCorrect: checkResult.data.total_correct,
+            totalTestcases: checkResult.data.total_testcases,
+            lastTestcase: checkResult.data.last_testcase || checkResult.data.input,
+            expectedOutput: checkResult.data.expected_output,
+            codeOutput: checkResult.data.code_output,
+            stdOutput: checkResult.data.std_output_list?.join('\n') || checkResult.data.std_output,
+          }
+        }
       }
 
       submitWindow.close()
@@ -758,7 +836,6 @@ ipcMain.handle('leetcode:submitCode', async (_event, questionSlug: string, quest
       submitWindow.close()
       return null
     }
-
   } catch (error: any) {
     console.error('Submit error:', error?.message)
     return null
@@ -839,6 +916,14 @@ ipcMain.handle(
                                         ? "ex"
                                         : lang === "erlang"
                                           ? "erl"
+                                          : lang === "mysql"
+                                            ? "sql"
+                                            : lang === "mssql"
+                                              ? "sql"
+                                              : lang === "oraclesql"
+                                                ? "sql"
+                                                : lang === "sql"
+                                                  ? "sql"
                                           : lang === "python3"
                                             ? "py"
                                             : "txt";

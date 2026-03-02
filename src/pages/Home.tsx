@@ -89,13 +89,21 @@ function ProgressRing({
 
 function HeatMap({ calendar }: { calendar: Record<string, number> }) {
   const today = new Date();
+  const [activeDayLabel, setActiveDayLabel] = useState<string>(
+    "Hover or tap a day to see details",
+  );
+
   const days = useMemo(() => {
     const result: { date: Date; count: number }[] = [];
-    for (let i = 364; i >= 0; i--) {
+
+    for (let i = 400; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      const key = date.toISOString().split("T")[0];
-      result.push({ date, count: calendar[key] || 0 });
+      const timestamp = Math.floor(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 1000,
+      );
+      const count = calendar[timestamp] || 0;
+      result.push({ date, count });
     }
     return result;
   }, [calendar]);
@@ -136,6 +144,9 @@ function HeatMap({ calendar }: { calendar: Record<string, number> }) {
     return "#39d353";
   };
 
+  const getDayLabel = (day: { date: Date; count: number }) =>
+    `${day.date.toLocaleDateString()}: ${day.count} submission${day.count === 1 ? "" : "s"}`;
+
   return (
     <div
       className="p-4 rounded-card"
@@ -150,8 +161,8 @@ function HeatMap({ calendar }: { calendar: Record<string, number> }) {
       >
         Submission Activity
       </h3>
-      <div className="overflow-x-auto">
-        <div className="flex gap-0.5 min-w-max">
+      <div className="overflow-x-auto pb-1">
+        <div className="flex gap-0.5 min-w-max w-fit mx-auto">
           {weeks.map((week, wi) => (
             <div key={wi} className="flex flex-col gap-0.5">
               {week.map((day, di) => (
@@ -159,17 +170,26 @@ function HeatMap({ calendar }: { calendar: Record<string, number> }) {
                   key={di}
                   className="w-3 h-3 rounded-sm"
                   style={{ backgroundColor: getColor(day.count) }}
-                  title={
-                    day.count >= 0
-                      ? `${day.date.toLocaleDateString()}: ${day.count} submissions`
-                      : ""
-                  }
+                  onMouseEnter={() => {
+                    if (day.count >= 0) setActiveDayLabel(getDayLabel(day));
+                  }}
+                  onTouchStart={() => {
+                    if (day.count >= 0) setActiveDayLabel(getDayLabel(day));
+                  }}
+                  onFocus={() => {
+                    if (day.count >= 0) setActiveDayLabel(getDayLabel(day));
+                  }}
+                  tabIndex={day.count >= 0 ? 0 : -1}
+                  aria-label={day.count >= 0 ? getDayLabel(day) : undefined}
                 />
               ))}
             </div>
           ))}
         </div>
       </div>
+      <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+        {activeDayLabel}
+      </p>
       <div className="flex items-center gap-2 mt-3">
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
           Less
@@ -254,6 +274,59 @@ export default function Home() {
     };
     fetchData();
   }, [settings.cookie]);
+
+  const streakStats = useMemo(() => {
+    const oneDayInSeconds = 86400;
+    const activeDays = Object.entries(calendar)
+      .filter(([, count]) => Number(count) > 0)
+      .map(([timestamp]) => Number(timestamp))
+      .filter((timestamp) => Number.isFinite(timestamp))
+      .sort((a, b) => a - b);
+
+    if (activeDays.length === 0) {
+      return {
+        current: 0,
+        best: 0,
+        thisWeekSubmissions: 0,
+        hasTodaySubmission: false,
+      };
+    }
+
+    const activeSet = new Set(activeDays);
+    const now = new Date();
+    const todayTimestamp = Math.floor(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 1000,
+    );
+    const hasTodaySubmission = activeSet.has(todayTimestamp);
+
+    let best = 1;
+    let running = 1;
+    for (let i = 1; i < activeDays.length; i++) {
+      if (activeDays[i] - activeDays[i - 1] === oneDayInSeconds) {
+        running += 1;
+      } else {
+        running = 1;
+      }
+      if (running > best) best = running;
+    }
+
+    let current = 0;
+    let cursor = hasTodaySubmission
+      ? todayTimestamp
+      : todayTimestamp - oneDayInSeconds;
+    while (activeSet.has(cursor)) {
+      current += 1;
+      cursor -= oneDayInSeconds;
+    }
+
+    let thisWeekSubmissions = 0;
+    for (let i = 0; i < 7; i++) {
+      const timestamp = todayTimestamp - i * oneDayInSeconds;
+      thisWeekSubmissions += Number(calendar[timestamp] || 0);
+    }
+
+    return { current, best, thisWeekSubmissions, hasTodaySubmission };
+  }, [calendar]);
 
   if (loading) {
     return (
@@ -475,7 +548,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-6 max-w-2xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 max-w-4xl mx-auto">
         <div
           className="p-6 rounded-card"
           style={{
@@ -483,7 +556,7 @@ export default function Home() {
             border: "1px solid var(--border)",
           }}
         >
-          <div className="flex items-center gap-4">
+          <div className="h-full flex items-center justify-center gap-4">
             <div
               className="w-16 h-16 rounded-xl flex items-center justify-center"
               style={{ backgroundColor: "#FFD70020" }}
@@ -510,7 +583,7 @@ export default function Home() {
             border: "1px solid var(--border)",
           }}
         >
-          <div className="flex items-center gap-4">
+          <div className="h-full flex items-center justify-center gap-4">
             <div
               className="w-16 h-16 rounded-xl flex items-center justify-center"
               style={{ backgroundColor: "#FF980020" }}
@@ -528,6 +601,49 @@ export default function Home() {
                 {profile?.reputation?.toLocaleString() || "0"}
               </p>
             </div>
+          </div>
+        </div>
+        <div
+          className="p-6 rounded-card"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div className="flex items-center gap-4 mb-3">
+            <div
+              className="w-16 h-16 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: "rgba(255, 87, 34, 0.15)" }}
+            >
+              <Flame size={32} style={{ color: "#FF5722" }} />
+            </div>
+            <div>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Current Streak
+              </p>
+              <p
+                className="text-3xl font-bold"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {streakStats.current} day{streakStats.current === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            Best: {streakStats.best} days • Last 7d:{" "}
+            {streakStats.thisWeekSubmissions} submissions
+          </div>
+          <div
+            className="mt-2 text-xs"
+            style={{
+              color: streakStats.hasTodaySubmission
+                ? "var(--success)"
+                : "var(--warning)",
+            }}
+          >
+            {streakStats.hasTodaySubmission
+              ? "Great job, you already submitted today."
+              : "Submit today to keep your streak alive."}
           </div>
         </div>
       </div>

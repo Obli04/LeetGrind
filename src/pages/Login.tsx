@@ -19,7 +19,6 @@ export default function Login() {
 
     try {
       const result = await leetCodeApi.validateCookie(cookie);
-      console.log("Login result:", result);
 
       if (result.valid) {
         const finalCookie = result.cookie || cookie;

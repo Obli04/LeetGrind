@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { leetCodeApi, ProblemDetail, SubmitResult } from '../services/leetcode'
 import {
@@ -15,7 +15,9 @@ import {
   XCircle,
   MemoryStick,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react'
 import { useStore } from '../store'
 
@@ -30,6 +32,9 @@ const EDITOR_INFO: Record<string, { name: string; color: string }> = {
 const LANGUAGES: { value: string; label: string }[] = [
   { value: 'python', label: 'Python' },
   { value: 'python3', label: 'Python3' },
+  { value: 'mysql', label: 'SQL (MySQL)' },
+  { value: 'mssql', label: 'SQL (MS SQL Server)' },
+  { value: 'oraclesql', label: 'SQL (Oracle)' },
   { value: 'javascript', label: 'JavaScript' },
   { value: 'typescript', label: 'TypeScript' },
   { value: 'java', label: 'Java' },
@@ -49,6 +54,34 @@ const LANGUAGES: { value: string; label: string }[] = [
   { value: 'erlang', label: 'Erlang' },
 ]
 
+const FILE_EXTENSION_BY_LANGUAGE: Record<string, string> = {
+  python: 'py',
+  python3: 'py',
+  java: 'java',
+  cpp: 'cpp',
+  c: 'c',
+  javascript: 'js',
+  typescript: 'ts',
+  go: 'go',
+  rust: 'rs',
+  csharp: 'cs',
+  ruby: 'rb',
+  php: 'php',
+  scala: 'scala',
+  swift: 'swift',
+  kotlin: 'kt',
+  dart: 'dart',
+  racket: 'rkt',
+  elixir: 'ex',
+  erlang: 'erl',
+  mysql: 'sql',
+  mssql: 'sql',
+  oraclesql: 'sql'
+}
+
+const getFileExtension = (language: string) =>
+  FILE_EXTENSION_BY_LANGUAGE[language] || 'txt'
+
 interface SimilarQuestion {
   title: string
   titleSlug: string
@@ -59,27 +92,75 @@ interface SimilarQuestion {
 export default function ProblemDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const { settings } = useStore()
+  const { settings, addSolvedProblem, isProblemSolved, toggleBookmark, isProblemBookmarked } = useStore()
 
   const [problem, setProblem] = useState<ProblemDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedLang, setSelectedLang] = useState<string>(settings.defaultLanguage)
+  const [selectedLang, setSelectedLang] = useState<string>(settings.defaultLanguage.toLowerCase())
   const [copied, setCopied] = useState(false)
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null)
+  const [solvedData, setSolvedData] = useState<{ runtime: string; memory: string; runtimePercentile?: number; memoryPercentile?: number } | null>(null)
+  const [isBookmarked, setIsBookmarked] = useState(false)
+  const availableLanguages = useMemo(() => {
+    const snippetLanguages = Array.from(
+      new Set(
+        (problem?.codeSnippets || [])
+          .map((snippet) => (snippet.langSlug || snippet.lang || '').toLowerCase())
+          .filter(Boolean)
+      )
+    )
+
+    if (!snippetLanguages.length) return LANGUAGES
+
+    return snippetLanguages.map((value) => {
+      const knownLanguage = LANGUAGES.find((lang) => lang.value === value)
+      return {
+        value,
+        label: knownLanguage?.label || value.toUpperCase()
+      }
+    })
+  }, [problem])
 
   useEffect(() => {
     const fetchProblem = async () => {
       if (!slug) return
       try {
         const data = await leetCodeApi.getProblemDetail(slug, settings.cookie)
-        console.log('Problem detail:', JSON.stringify(data).substring(0, 500))
         setProblem(data)
 
-        const initialCode = data?.codeSnippets?.find(
-          s => s.langSlug === settings.defaultLanguage || s.lang?.toLowerCase() === settings.defaultLanguage
-        )?.code || ''
+        const solved = isProblemSolved(slug)
+        if (solved) {
+          setSolvedData({
+            runtime: solved.runtime,
+            memory: solved.memory,
+            runtimePercentile: solved.runtimePercentile,
+            memoryPercentile: solved.memoryPercentile
+          })
+        }
+
+        setIsBookmarked(isProblemBookmarked(slug))
+
+        const defaultLanguage = settings.defaultLanguage.toLowerCase()
+        const snippets = data?.codeSnippets || []
+        const initialLanguage =
+          snippets.find(
+            (snippet) =>
+              snippet.langSlug?.toLowerCase() === defaultLanguage ||
+              snippet.lang?.toLowerCase() === defaultLanguage
+          )?.langSlug?.toLowerCase() ||
+          snippets[0]?.langSlug?.toLowerCase() ||
+          defaultLanguage
+
+        setSelectedLang(initialLanguage)
+
+        const initialCode =
+          snippets.find(
+            (snippet) =>
+              snippet.langSlug?.toLowerCase() === initialLanguage ||
+              snippet.lang?.toLowerCase() === initialLanguage
+          )?.code || ''
         setCode(initialCode)
       } catch (error) {
         console.error('Failed to fetch problem:', error)
@@ -88,17 +169,24 @@ export default function ProblemDetailPage() {
       }
     }
     fetchProblem()
-  }, [slug, settings.cookie, settings.defaultLanguage])
+  }, [slug, settings.cookie, settings.defaultLanguage, isProblemSolved, isProblemBookmarked])
+
+  useEffect(() => {
+    if (!availableLanguages.length) return
+    const isCurrentLanguageAvailable = availableLanguages.some(
+      (language) => language.value === selectedLang
+    )
+
+    if (!isCurrentLanguageAvailable) {
+      setSelectedLang(availableLanguages[0].value)
+    }
+  }, [availableLanguages, selectedLang])
 
   useEffect(() => {
     const loadCode = async () => {
       if (!problem) return
 
-      const ext = selectedLang === 'python' ? 'py' : selectedLang === 'python3' ? 'py' :
-        selectedLang === 'java' ? 'java' : selectedLang === 'cpp' ? 'cpp' :
-        selectedLang === 'javascript' ? 'js' : selectedLang === 'typescript' ? 'ts' :
-        selectedLang === 'go' ? 'go' : selectedLang === 'rust' ? 'rs' :
-        selectedLang === 'csharp' ? 'cs' : selectedLang === 'c' ? 'c' : 'txt'
+      const ext = getFileExtension(selectedLang)
 
       const folderName = `${problem.questionId}-${problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
       const fullPath = settings.rootFolder
@@ -117,7 +205,7 @@ export default function ProblemDetailPage() {
 
       if (problem.codeSnippets) {
         const snippet = problem.codeSnippets.find(
-          s => s.langSlug === selectedLang || s.lang?.toLowerCase() === selectedLang
+          s => s.langSlug?.toLowerCase() === selectedLang || s.lang?.toLowerCase() === selectedLang
         )
         if (snippet) {
           setCode(snippet.code)
@@ -143,6 +231,12 @@ export default function ProblemDetailPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleToggleBookmark = () => {
+    if (!slug) return
+    toggleBookmark(slug)
+    setIsBookmarked(!isBookmarked)
+  }
+
   const handleOpenInEditor = async () => {
     if (!problem || !settings.rootFolder) {
       navigate('/settings')
@@ -150,11 +244,7 @@ export default function ProblemDetailPage() {
     }
 
     try {
-      const ext = selectedLang === 'python' ? 'py' : selectedLang === 'python3' ? 'py' :
-        selectedLang === 'java' ? 'java' : selectedLang === 'cpp' ? 'cpp' :
-        selectedLang === 'javascript' ? 'js' : selectedLang === 'typescript' ? 'ts' :
-        selectedLang === 'go' ? 'go' : selectedLang === 'rust' ? 'rs' :
-        selectedLang === 'csharp' ? 'cs' : selectedLang === 'c' ? 'c' : 'txt'
+      const ext = getFileExtension(selectedLang)
 
       const folderName = `${problem.questionId}-${problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
       const fullPath = `${settings.rootFolder}/${folderName}/solution.${ext}`
@@ -191,6 +281,17 @@ export default function ProblemDetailPage() {
       if (result) {
         setSubmitResult(result)
         setSubmitting(false)
+
+        if (result.state === 'SUCCESS' && result.statusCode === 10) {
+          addSolvedProblem({
+            titleSlug: slug,
+            runtime: result.runtime || '',
+            memory: result.memory || '',
+            runtimePercentile: result.runtimePercentile,
+            memoryPercentile: result.memoryPercentile,
+            solvedAt: Date.now()
+          })
+        }
       } else {
         setSubmitting(false)
         alert('Failed to submit code. Check console for details.')
@@ -280,6 +381,16 @@ export default function ProblemDetailPage() {
               >
                 {problem.difficulty}
               </span>
+              <button
+                onClick={handleToggleBookmark}
+                className="p-1 rounded transition-all duration-150 hover:scale-110"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: isBookmarked ? 'var(--accent-primary)' : 'var(--text-muted)'
+                }}
+              >
+                {isBookmarked ? <BookmarkCheck size={24} /> : <Bookmark size={24} />}
+              </button>
             </h1>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               Problem #{problem.questionId}
@@ -417,7 +528,7 @@ export default function ProblemDetailPage() {
               border: '1px solid var(--border)'
             }}
           >
-            {LANGUAGES.map(lang => (
+            {availableLanguages.map(lang => (
               <option key={lang.value} value={lang.value}>{lang.label}</option>
             ))}
           </select>
@@ -449,6 +560,61 @@ export default function ProblemDetailPage() {
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </button>
           </div>
+
+          {solvedData && !submitResult && (
+            <div
+              className="mt-4 p-4 rounded-card"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border)'
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
+                <h3 className="font-semibold text-lg" style={{ color: 'var(--success)' }}>
+                  Solved
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div
+                  className="p-3 rounded-card"
+                  style={{ backgroundColor: 'var(--bg-tertiary)' }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock size={14} style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Runtime</span>
+                  </div>
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {solvedData.runtime}
+                  </p>
+                  {solvedData.runtimePercentile !== undefined && (
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Beats {solvedData.runtimePercentile.toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  className="p-3 rounded-card"
+                  style={{ backgroundColor: 'var(--bg-tertiary)' }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <MemoryStick size={14} style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Memory</span>
+                  </div>
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {solvedData.memory}
+                  </p>
+                  {solvedData.memoryPercentile !== undefined && (
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Beats {solvedData.memoryPercentile.toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {submitResult && (
             <div

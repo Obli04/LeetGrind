@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { 
-  FolderOpen, 
-  Code, 
-  Palette, 
-  KeyRound, 
+import {
+  FolderOpen,
+  Code,
+  Palette,
+  KeyRound,
   Save,
   LogOut,
   AlertCircle,
@@ -24,6 +24,7 @@ const EDITORS: { value: Editor; label: string; icon: string }[] = [
 const LANGUAGES: { value: string; label: string }[] = [
   { value: 'python', label: 'Python' },
   { value: 'python3', label: 'Python3' },
+  { value: 'mysql', label: 'SQL' },
   { value: 'javascript', label: 'JavaScript' },
   { value: 'typescript', label: 'TypeScript' },
   { value: 'java', label: 'Java' },
@@ -46,7 +47,7 @@ const LANGUAGES: { value: string; label: string }[] = [
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { settings, setSettings, setAuthenticated } = useStore()
-  
+
   const [rootFolder, setRootFolder] = useState(settings.rootFolder)
   const [editor, setEditor] = useState<Editor>(settings.editor)
   const [defaultLang, setDefaultLang] = useState(settings.defaultLanguage)
@@ -67,7 +68,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
-    
+
     try {
       if (cookie !== settings.cookie) {
         const isValid = await leetCodeApi.validateCookie(cookie)
@@ -111,7 +112,7 @@ export default function SettingsPage() {
       </h1>
 
       <div className="space-y-6">
-        <SettingsSection 
+        <SettingsSection
           icon={Palette}
           title="Appearance"
         >
@@ -128,7 +129,7 @@ export default function SettingsPage() {
                   key={t}
                   onClick={() => setTheme(t)}
                   className="px-4 py-2 rounded-btn text-sm font-medium capitalize transition-all duration-150"
-                  style={{ 
+                  style={{
                     backgroundColor: theme === t ? 'var(--accent-primary)' : 'var(--surface)',
                     color: theme === t ? 'white' : 'var(--text-secondary)',
                     border: '1px solid var(--border)'
@@ -141,7 +142,7 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
-        <SettingsSection 
+        <SettingsSection
           icon={FolderOpen}
           title="Workspace"
         >
@@ -157,7 +158,7 @@ export default function SettingsPage() {
                 onChange={(e) => setRootFolder(e.target.value)}
                 placeholder="Select a folder..."
                 className="flex-1 px-3 py-2 rounded-btn text-sm outline-none"
-                style={{ 
+                style={{
                   backgroundColor: 'var(--bg-tertiary)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border)'
@@ -166,7 +167,7 @@ export default function SettingsPage() {
               <button
                 onClick={handleSelectFolder}
                 className="px-4 py-2 rounded-btn text-sm transition-all duration-150"
-                style={{ 
+                style={{
                   backgroundColor: 'var(--surface)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border)'
@@ -178,7 +179,7 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
-        <SettingsSection 
+        <SettingsSection
           icon={Code}
           title="Editor"
         >
@@ -193,7 +194,7 @@ export default function SettingsPage() {
                   key={e.value}
                   onClick={() => setEditor(e.value)}
                   className="flex items-center gap-2 px-4 py-3 rounded-btn text-sm font-medium transition-all duration-150"
-                  style={{ 
+                  style={{
                     backgroundColor: editor === e.value ? 'var(--accent-muted)' : 'var(--surface)',
                     color: editor === e.value ? 'var(--accent-hover)' : 'var(--text-primary)',
                     border: `1px solid ${editor === e.value ? 'var(--accent-primary)' : 'var(--border)'}`
@@ -217,7 +218,7 @@ export default function SettingsPage() {
                   key={l.value}
                   onClick={() => setDefaultLang(l.value)}
                   className="px-3 py-1.5 rounded-btn text-sm transition-all duration-150"
-                  style={{ 
+                  style={{
                     backgroundColor: defaultLang === l.value ? 'var(--accent-primary)' : 'var(--surface)',
                     color: defaultLang === l.value ? 'white' : 'var(--text-secondary)',
                     border: '1px solid var(--border)'
@@ -230,7 +231,7 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
-        <SettingsSection 
+        <SettingsSection
           icon={KeyRound}
           title="Authentication"
         >
@@ -246,7 +247,7 @@ export default function SettingsPage() {
                 onChange={(e) => setCookie(e.target.value)}
                 placeholder="Enter your LEETCODE_SESSION cookie"
                 className="w-full px-3 py-2 pr-10 rounded-btn text-sm outline-none font-mono"
-                style={{ 
+                style={{
                   backgroundColor: 'var(--bg-tertiary)',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border)'
@@ -274,7 +275,7 @@ export default function SettingsPage() {
               onChange={(e) => setCsrfToken(e.target.value)}
               placeholder="Enter your CSRF token"
               className="w-full px-3 py-2 rounded-btn text-sm outline-none font-mono"
-              style={{ 
+              style={{
                 backgroundColor: 'var(--bg-tertiary)',
                 color: 'var(--text-primary)',
                 border: '1px solid var(--border)'
@@ -284,9 +285,9 @@ export default function SettingsPage() {
         </SettingsSection>
 
         {message && (
-          <div 
+          <div
             className="flex items-center gap-2 p-3 rounded-btn"
-            style={{ 
+            style={{
               backgroundColor: message.type === 'success' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
               color: message.type === 'success' ? 'var(--success)' : 'var(--error)'
             }}
@@ -301,7 +302,7 @@ export default function SettingsPage() {
             onClick={handleSave}
             disabled={saving}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-btn font-medium transition-all duration-150 hover:scale-[1.02] disabled:opacity-50"
-            style={{ 
+            style={{
               backgroundColor: 'var(--accent-primary)',
               color: 'white'
             }}
@@ -313,7 +314,7 @@ export default function SettingsPage() {
           <button
             onClick={handleLogout}
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-btn font-medium transition-all duration-150 hover:scale-[1.02]"
-            style={{ 
+            style={{
               backgroundColor: 'var(--surface)',
               color: 'var(--error)',
               border: '1px solid var(--border)'
@@ -328,25 +329,25 @@ export default function SettingsPage() {
   )
 }
 
-function SettingsSection({ 
-  icon: Icon, 
-  title, 
-  children 
-}: { 
-  icon: React.ElementType, 
-  title: string, 
-  children: React.ReactNode 
+function SettingsSection({
+  icon: Icon,
+  title,
+  children
+}: {
+  icon: React.ElementType,
+  title: string,
+  children: React.ReactNode
 }) {
   return (
-    <div 
+    <div
       className="p-6 rounded-card"
-      style={{ 
+      style={{
         backgroundColor: 'var(--bg-secondary)',
         border: '1px solid var(--border)'
       }}
     >
       <div className="flex items-center gap-3 mb-4">
-        <div 
+        <div
           className="w-10 h-10 rounded-lg flex items-center justify-center"
           style={{ backgroundColor: 'var(--accent-muted)' }}
         >

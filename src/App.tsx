@@ -10,11 +10,13 @@ import Submissions from './pages/Submissions'
 import Settings from './pages/Settings'
 
 function App() {
-  const { isAuthenticated, settings, loadSettings } = useStore()
+  const { isAuthenticated, settings, loadSettings, loadSolvedProblems, loadBookmarkedProblems } = useStore()
 
   useEffect(() => {
     loadSettings()
-  }, [loadSettings])
+    loadSolvedProblems()
+    loadBookmarkedProblems()
+  }, [loadSettings, loadSolvedProblems, loadBookmarkedProblems])
 
   useEffect(() => {
     document.documentElement.classList.remove('dark', 'light')

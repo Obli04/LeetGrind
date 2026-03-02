@@ -10,21 +10,23 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
-  Shuffle
+  Shuffle,
+  Bookmark,
+  BookmarkCheck
 } from 'lucide-react'
 import { useStore } from '../store'
 import { leetCodeApi } from '../services/leetcode'
 import ProgressToast from '../components/ProgressToast'
 
 type Difficulty = 'All' | 'Easy' | 'Medium' | 'Hard'
-type Status = 'All' | 'Solved' | 'Unsolved'
+type Status = 'All' | 'Solved' | 'Unsolved' | 'Bookmarked'
 
 const PROBLEMS_PER_PAGE = 50
 
 export default function Problems() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { settings, problems, setProblems, addProblemsBatch } = useStore()
+  const { settings, problems, setProblems, addProblemsBatch, isProblemSolved, toggleBookmark, isProblemBookmarked } = useStore()
   
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState(searchParams.get('search') || '')
@@ -114,15 +116,19 @@ export default function Problems() {
         (p.topicTags && p.topicTags.some((tag: any) => tag.name.toLowerCase().includes(search.toLowerCase())))
       
       const matchesDifficulty = difficulty === 'All' || p.difficulty?.toLowerCase() === difficulty.toLowerCase()
-      const isSolved = p.status === 'AC' || p.status === 'ac'
-      const isUnsolved = !p.status || p.status === 'TO_DO' || p.status === 'NOT_STARTED' || p.status === 'NOT_STARTED'
+      const solvedData = isProblemSolved(p.titleSlug)
+      const isSolvedByApi = p.status === 'AC' || p.status === 'ac'
+      const isSolved = solvedData !== undefined || isSolvedByApi
+      const isUnsolved = !isSolved
+      const isBookmarked = isProblemBookmarked(p.titleSlug)
       const matchesStatus = status === 'All' || 
         (status === 'Solved' && isSolved) ||
-        (status === 'Unsolved' && isUnsolved)
+        (status === 'Unsolved' && isUnsolved) ||
+        (status === 'Bookmarked' && isBookmarked)
       
       return matchesSearch && matchesDifficulty && matchesStatus
     })
-  }, [problems, search, difficulty, status])
+  }, [problems, search, difficulty, status, isProblemSolved, isProblemBookmarked])
 
   const paginatedProblems = useMemo(() => {
     const start = (currentPage - 1) * PROBLEMS_PER_PAGE
@@ -269,7 +275,7 @@ export default function Problems() {
             <div className="flex items-center gap-2">
               <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Status:</span>
               <div className="flex gap-1">
-                {(['All', 'Solved', 'Unsolved'] as Status[]).map(s => (
+                {(['All', 'Solved', 'Unsolved', 'Bookmarked'] as Status[]).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatus(s)}
@@ -308,7 +314,9 @@ export default function Problems() {
           <div className="space-y-2">
             {paginatedProblems.map((problem, idx) => {
               const diffColors = getDifficultyColor(problem.difficulty)
-              const isSolved = problem.status === 'AC' || problem.status === 'ac'
+              const solvedData = isProblemSolved(problem.titleSlug)
+              const isSolved = solvedData !== undefined || problem.status === 'AC' || problem.status === 'ac'
+              const isBookmarked = isProblemBookmarked(problem.titleSlug)
               return (
                 <div
                   key={problem.questionFrontendId || problem.titleSlug || idx}
@@ -319,11 +327,25 @@ export default function Problems() {
                     border: '1px solid var(--border)'
                   }}
                 >
-                  <div className="w-8">
+                  <div className="w-8 flex items-center justify-center">
                     {isSolved ? (
                       <CheckCircle2 size={20} style={{ color: 'var(--success)' }} />
                     ) : (
                       <Circle size={20} style={{ color: 'var(--text-muted)' }} />
+                    )}
+                  </div>
+
+                  <div 
+                    className="w-8 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleBookmark(problem.titleSlug)
+                    }}
+                  >
+                    {isBookmarked ? (
+                      <BookmarkCheck size={20} style={{ color: 'var(--accent-primary)' }} />
+                    ) : (
+                      <Bookmark size={20} style={{ color: 'var(--text-muted)' }} />
                     )}
                   </div>
 
